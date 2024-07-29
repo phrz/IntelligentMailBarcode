@@ -179,4 +179,3 @@ func makeExampleRawIMB(
     let barcodeText = imb.description
     #expect(barcodeText == "AADTFFDFTDADTAADAATFDTDDAAADDTDTTDAFADADDDTFFFDDTTTADFAAADFTDAADA")
 }
-
