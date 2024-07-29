@@ -155,7 +155,7 @@ func makeExampleRawIMB(
     let step5aCharacters = IntelligentMailBarcode.characters(from: step4AdditionalInformation)
     #expect(step5aCharacters == [0x1234, 0x085C, 0x08E4, 0x0B06, 0x1922, 0x1740, 0x0839, 0x1200, 0x0DC0, 0x04D4])
 
-    let step5bCharacters = IntelligentMailBarcode.apply(fcs: step2FCS, to: step5aCharacters)
+    let step5bCharacters = IntelligentMailBarcode.apply(fcs: step2FCS, to: step5aCharacters ?? [])
     #expect(step5bCharacters == [0x0DCB, 0x085C, 0x08E4, 0x0B06, 0x06DD, 0x1740, 0x17C6, 0x1200, 0x123F, 0x1B2B])
 
     // Step 6: Conversion from Characters to the Intelligent Mail Barcode

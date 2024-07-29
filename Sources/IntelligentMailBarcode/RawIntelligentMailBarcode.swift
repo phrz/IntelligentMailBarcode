@@ -119,9 +119,7 @@ open class RawIntelligentMailBarcode: CustomStringConvertible {
     
     public var trackingCode: String {
         // 20 digit tracking code
-        // Tracking = Barcode + Service + MID + Serial
         let code = _barcodeID + _serviceTypeID + mailerID + serialNumber
-//        assert(code.count == 20, "IMB Tracking Code must be 20 characters long, was \(code.count)")
         return code
     }
     
@@ -135,14 +133,6 @@ open class RawIntelligentMailBarcode: CustomStringConvertible {
         //
         // The routing code shall be converted from a 0-, 5-, 9-, or 11-digit string to an integer value in the range of
         // 0 to 101,000,100,000 by applying the following algorithm, as shown in Table 4 below.
-        //
-        // TABLE 4
-        //
-        // Routing Code Length      Value
-        // 0 digits long            Value = 0
-        // 5 digits long            Value = (5-digit string converted to integer) + 1
-        // 9 digits long            Value = (9-digit string converted to integer) + 100000 + 1
-        // 11 digits long           Value = (11-digit string converted to integer) + 1000000000 + 100000 + 1
         
         let integerRoutingCode: IMBIntegerType = switch routingCode.count {
         case 0:
@@ -305,11 +295,9 @@ open class RawIntelligentMailBarcode: CustomStringConvertible {
         var codewords = codewords
         
         // 2.2.4 Step 4 — Inserting Additional Information into Codewords
-        /* Codeword J shall be modified to contain orientation information. Codeword A shall be modified to contain the most significant FCS bit (bit 10). */
-        // A. Codeword J shall be converted from 0 through 635 to even numbers in the range 0 through 1270 (as shown in Table 9 below), such that:
+        // Codeword J shall be modified to contain orientation information.
         codewords[9] *= 2
-        
-        // B. If the most significant bit of the FCS 11-bit value is a binary 1, Codeword A shall be incremented by 659. See Table 10 below for an example.
+        // Codeword A shall be modified to contain the most significant FCS bit (bit 10).
         let fcsBit10 = (fcs >> 10) & 1
         if(fcsBit10 == 1) {
             codewords[0] += 659
@@ -319,7 +307,6 @@ open class RawIntelligentMailBarcode: CustomStringConvertible {
     }
     
     private static func reverseIMBWordInt(_ input: IMBWordIntegerType) -> IMBWordIntegerType {
-        // Adapted from example code
         // USPS-B-3200
         // Intelligent Mail Barcode 4-State
         // Appendix D, 9.2: Example for Generating Codeword to Character Table
@@ -383,53 +370,10 @@ open class RawIntelligentMailBarcode: CustomStringConvertible {
             return nil
         }
         
-        // MARK: Test Code
-//        for index in 0..<length {
-//            print("Index \(index)\t\tValue \(table[index])")
-//        }
-        
         return table
     }
     
-    /*private static func cachedMakeNof13Table(n: Int, length: Int) -> [IMBWordIntegerType]? {
-        let docDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-        let filename = "table_\(n)of13_\(length).json"
-        let url = docDirectory.appendingPathComponent(filename)
-        
-        let cacheResult: [IMBWordIntegerType]? = {
-            do {
-                if !(FileManager.default.fileExists(atPath: url.path)) {
-                    return nil
-                }
-                let data = try Data(contentsOf: url, options: .mappedIfSafe)
-                let ints = try JSONDecoder().decode([IMBWordIntegerType].self, from: data)
-                return ints
-            } catch {
-                print("Error loading JSON: \(error)")
-                return nil
-            }
-        }()
-        
-        if let cacheResult = cacheResult {
-            print("Cache hit n=\(n) length=\(length)")
-            return cacheResult
-        }
-        
-        // fall back to calculation
-        print("Cache miss n=\(n) length=\(length)")
-        let result = makeNof13Table(n: n, length: length)
-        // save to cache
-        do {
-            let data = try JSONEncoder().encode(result)
-            try data.write(to: url, options: .atomicWrite)
-        } catch {
-            print("Error saving cached result to JSON: \(error)")
-        }
-        
-        return result
-    }*/
-    
-    public static func characters(from codewords: [IMBWordIntegerType]) -> [IMBWordIntegerType] {
+    public static func characters(from codewords: [IMBWordIntegerType]) -> [IMBWordIntegerType]? {
         // USPS-B-3200
         // Intelligent Mail Barcode 4-State
         // 2.2.5 Step 5 — Conversion from Codewords to Characters
@@ -437,21 +381,23 @@ open class RawIntelligentMailBarcode: CustomStringConvertible {
         /* The Codewords shall be converted to the Characters in two steps. The Characters shall be labeled from A to J in accordance with the Codeword from which they were generated. The bits in each Character shall be labeled from 12 (leftmost and most significant) to 0 (rightmost and least significant). The code in Appendix D can be used to generate the Codewords to Characters lookup tables.
          */
 //         A. Each Codeword shall be converted from a decimal value to a 13-bit Character, ranging from 0 to 1364; except Codeword A, which ranges from 0 to 1317; and Codeword J, which ranges from 0 to 1270 even.
-        let characters = codewords.map { codeword in
+        var characters = [IMBWordIntegerType]()
+        
+        for codeword in codewords {
             // 1. If the Codeword has a value from 0 to 1286, the Character shall be determined by indexing into Table 19, in ,Appendix E - Tables for Converting Characters using the Codeword.
             if (0...1286).contains(codeword) {
-                return table19_5of13[Int(codeword)]
+                characters.append(table19_5of13[Int(codeword)])
             }
             // 2. If the Codeword has a value from 1287 to 1364, the Character shall be determined by indexing into, Table 20 in Appendix E - Tables for Converting Characters, using the Codeword reduced by 1287 (result from 0 to 77).
             else if (1287...1364).contains(codeword) {
-                return table20_2of13[Int(codeword - 1287)]
+                characters.append(table20_2of13[Int(codeword - 1287)])
             }
             else {
                 print("IntelligentMailBarcode.characters(from:) - Unexpected OOB codeword value \(codeword)")
-                return 0
+                return nil
             }
-            // 3. An example of looking up Codewords to Characters using Table 19 and Table 20 in Appendix E - Tables for Converting Characters is shown in Figure 3.
         }
+        
         return characters
     }
     
@@ -470,42 +416,26 @@ open class RawIntelligentMailBarcode: CustomStringConvertible {
     public static func makeIMB(from characters: [IMBWordIntegerType]) -> String {
         // 2.2.6 Step 6 — Conversion from Characters to the Intelligent Mail Barcode
         /* At this point there are 10 (A–J) Characters of 13 (12–0) bits each, for a total of 130 bits. Each bit shall correspond to an extender (either an ascender or a descender) in a 65-bar Intelligent Mail barcode. A bit value of 0 shall represent the absence of the extender, and a bit value of 1 shall represent the presence of the extender. The bars shall be numbered from 1 (leftmost) to 65 (rightmost). Table 22 in Appendix E - Tables for Converting Characters maps bars to characters. At this point the barcode shall consist of 65 bars, each of which is in one of four possible states (see Figure 5 below). */
-//        Self.table22_barToCharacterTable.map { entry in
-//
-//        }
-        
+
         var bars = Array(repeating: " ", count: barsPerIMB)
 
         RawIntelligentMailBarcode.table22_barToCharacterTable.enumerated().forEach { (barIndex, row) in
-//            print("Bar \(barIndex): ", row)
             let values = row.split(separator: " ")
-            // letter -> 0-index
-            // "A" -> 0; "B" -> 1; ...
             let ord = { (s: (any StringProtocol)) -> Int in Int(s.utf8.first! - "A".utf8.first!) }
 
             let (descenderCharIndex, descenderBitIndex, ascenderCharIndex, ascenderBitIndex)
                 = (ord(values[0]), Int(values[1])!, ord(values[2]), Int(values[3])!)
-
-//            print("Bar \(barIndex): Descender if char \(descenderCharIndex) bit \(descenderBitIndex) is 1, ascender if char \(ascenderCharIndex) bit \(ascenderBitIndex) is 1")
+            // Character "A" = 0 here.
             let descenderChar = characters[descenderCharIndex]
             let ascenderChar = characters[ascenderCharIndex]
             
-            /*
-             Bars are constructed left to right, selecting bits from characters. The ****LEAST**** significant bit is bit 0. Using Table IV in Appendix D, the left 5 bars are constructed using the bit specified in the table.
-             */
+            // Bars are constructed L->R, selecting bits from character. The __LEAST SIGNIFICANT BIT__ is bit "0".
             let descenderBit = descenderChar >> descenderBitIndex & 1
             let ascenderBit = ascenderChar >> ascenderBitIndex & 1
-
-//            print("\t- DSC: char \(descenderCharIndex): \(String(descenderChar, radix: 2)), bit \(descenderBitIndex): \(descenderBit)")
-//            print("\t- ASC: char \(ascenderCharIndex): \(String(ascenderChar, radix: 2)), bit \(ascenderBitIndex): \(ascenderBit)")
             
-            /*
-             1 represents the presence of the extender. 0 represents its absence.
-
-             A represents an ascender is present. D indicates a descender is present. T indicates neither is present, and F indicates both are present.
-             */
+            // 1 represents the presence of the extender. 0 represents its absence.
+            // A = Ascender, D = Descender, T = Neither (Tracker), F = Both (Full)
             let barLetter = ["T","D","A","F"][Int(ascenderBit << 1 | descenderBit)]
-//            print(barLetter, "\n")
             bars[barIndex] = barLetter
         }
         return bars.joined()
@@ -513,27 +443,15 @@ open class RawIntelligentMailBarcode: CustomStringConvertible {
     
     public func generate() -> String? {
         let encodedStep1 = self.encodedAsBinaryUnchecked
-
-        // Step 2: CRC to generate FCS
         let step2FCS = Self.generateCRC11ForRightmost102Bits(encodedStep1)
-
-        // Step 3: Binary Data to Codewords
         guard let step3Codewords = Self.generateCodewords(from: encodedStep1) else {
             print("Cannot create IMB: Step 3 generateCodewords failure.")
             return nil
         }
-
-        // Step 4: Inserting Additional Information to Codewords
         let step4AdditionalInformation = Self.insert(fcs: step2FCS, into: step3Codewords)
-
-        // Step 5: Conversion from Codewords to Characters
-        let step5aCharacters = Self.characters(from: step4AdditionalInformation)
-
+        guard let step5aCharacters = Self.characters(from: step4AdditionalInformation) else { return nil }
         let step5bCharacters = Self.apply(fcs: step2FCS, to: step5aCharacters)
-
-        // Step 6: Conversion from Characters to the Intelligent Mail Barcode
-        let barcodeText = Self.makeIMB(from: step5bCharacters)
-        
-        return barcodeText
+        let step6BarcodeText = Self.makeIMB(from: step5bCharacters)
+        return step6BarcodeText
     }
 }
