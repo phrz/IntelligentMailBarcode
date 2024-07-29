@@ -12,11 +12,14 @@ let package = Package(
             name: "IntelligentMailBarcode",
             targets: ["IntelligentMailBarcode"]),
     ],
+    dependencies: [
+        .package(path: "./Libraries/UInt128")
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "IntelligentMailBarcode"),
+            name: "IntelligentMailBarcode", dependencies: ["UInt128"]),
         .testTarget(
             name: "IntelligentMailBarcodeTests",
             dependencies: ["IntelligentMailBarcode"]

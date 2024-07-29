@@ -1,0 +1,3 @@
+[submodule "Libraries/UInt128"]
+	path = Libraries/UInt128
+	url = https://github.com/Jitsusama/UInt128
